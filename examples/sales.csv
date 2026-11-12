@@ -1,0 +1,6 @@
+order_id,customer,region,category,units,revenue,status
+ORD-1001,Alya Pratama,Jakarta,Electronics,2,12500000,Completed
+ORD-1002,Rizky Maulana,Bandung,Home & Living,1,890000,Completed
+ORD-1003,Nadia Lestari,Surabaya,Electronics,3,7600000,Processing
+ORD-1004,Bima Saputra,Jakarta,Fashion,4,1400000,Completed
+ORD-1005,Citra Dewi,Yogyakarta,Beauty,2,580000,Completed

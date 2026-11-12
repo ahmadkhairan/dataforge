@@ -1,0 +1,21 @@
+services:
+  dataforge-sync:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATAFORGE_SYNC_TOKEN: ${DATAFORGE_SYNC_TOKEN:?set DATAFORGE_SYNC_TOKEN}
+      DATAFORGE_SYNC_CORS_ORIGIN: ${DATAFORGE_SYNC_CORS_ORIGIN:-https://app.example.com}
+    ports:
+      - "8787:8787"
+    volumes:
+      - dataforge-sync-data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/healthz').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  dataforge-sync-data:

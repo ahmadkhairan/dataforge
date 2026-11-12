@@ -1,0 +1,55 @@
+{
+  "name": "dataforge",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "overrides": {
+    "uuid": "^11.1.1"
+  },
+  "scripts": {
+    "dev": "vite",
+    "check": "tsc -b --pretty false",
+    "test": "vitest run",
+    "test:server": "node --test server/sync-server.test.mjs",
+    "test:e2e": "playwright test",
+    "verify:all": "npm run verify && npm run test:server && npm run test:e2e && npm audit --omit=dev",
+    "build": "tsc -b && vite build",
+    "verify": "npm run check && npm test && cargo test --manifest-path src-tauri/Cargo.toml && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings && vite build",
+    "preview": "vite preview",
+    "sync:server": "node server/sync-server.mjs",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@duckdb/duckdb-wasm": "^1.33.1-dev57.0",
+    "@tanstack/react-table": "^9.2.4",
+    "@tanstack/react-virtual": "^3.14.13",
+    "@tauri-apps/api": "latest",
+    "@tauri-apps/plugin-dialog": "^2.8.4",
+    "@vitejs/plugin-react": "latest",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "exceljs": "^4.4.0",
+    "hyperformula": "^3.4.0",
+    "lucide-react": "latest",
+    "papaparse": "^5.7.0",
+    "react": "latest",
+    "react-dom": "latest",
+    "read-excel-file": "latest",
+    "tailwind-merge": "^3.7.0",
+    "typescript": "latest",
+    "vite": "latest",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "@tauri-apps/cli": "latest",
+    "@types/node": "^22.20.3",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "autoprefixer": "^10.6.1",
+    "postcss": "^8.5.28",
+    "tailwindcss": "^3.4.19",
+    "vitest": "^5.1.0"
+  }
+}

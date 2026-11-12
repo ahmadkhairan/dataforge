@@ -1,0 +1,126 @@
+name: Release desktop installers
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: '--target aarch64-apple-darwin'
+          - platform: windows-latest
+            args: ''
+          - platform: ubuntu-22.04
+            args: ''
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Validate release signing secrets
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          LINUX_GPG_PRIVATE_KEY: ${{ secrets.LINUX_GPG_PRIVATE_KEY }}
+          LINUX_GPG_KEY_ID: ${{ secrets.LINUX_GPG_KEY_ID }}
+          APPIMAGETOOL_SIGN_PASSPHRASE: ${{ secrets.APPIMAGETOOL_SIGN_PASSPHRASE }}
+        run: |
+          test -n "$TAURI_SIGNING_PRIVATE_KEY" || { echo 'Missing TAURI_SIGNING_PRIVATE_KEY'; exit 1; }
+          test -n "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" || { echo 'Missing TAURI_SIGNING_PRIVATE_KEY_PASSWORD'; exit 1; }
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            test -n "$APPLE_CERTIFICATE" || { echo 'Missing APPLE_CERTIFICATE'; exit 1; }
+            test -n "$APPLE_CERTIFICATE_PASSWORD" || { echo 'Missing APPLE_CERTIFICATE_PASSWORD'; exit 1; }
+            test -n "$APPLE_SIGNING_IDENTITY" || { echo 'Missing APPLE_SIGNING_IDENTITY'; exit 1; }
+            test -n "$APPLE_ID" || { echo 'Missing APPLE_ID'; exit 1; }
+            test -n "$APPLE_PASSWORD" || { echo 'Missing APPLE_PASSWORD'; exit 1; }
+            test -n "$APPLE_TEAM_ID" || { echo 'Missing APPLE_TEAM_ID'; exit 1; }
+          elif [ "$RUNNER_OS" = "Windows" ]; then
+            test -n "$WINDOWS_CERTIFICATE" || { echo 'Missing WINDOWS_CERTIFICATE'; exit 1; }
+            test -n "$WINDOWS_CERTIFICATE_PASSWORD" || { echo 'Missing WINDOWS_CERTIFICATE_PASSWORD'; exit 1; }
+          elif [ "$RUNNER_OS" = "Linux" ]; then
+            test -n "$LINUX_GPG_PRIVATE_KEY" || { echo 'Missing LINUX_GPG_PRIVATE_KEY'; exit 1; }
+            test -n "$LINUX_GPG_KEY_ID" || { echo 'Missing LINUX_GPG_KEY_ID'; exit 1; }
+            test -n "$APPIMAGETOOL_SIGN_PASSPHRASE" || { echo 'Missing APPIMAGETOOL_SIGN_PASSPHRASE'; exit 1; }
+          fi
+      - name: Import Windows code-signing certificate
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          New-Item -ItemType Directory -Force -Path certificate | Out-Null
+          Set-Content -Path certificate/tempCert.txt -Value $env:WINDOWS_CERTIFICATE
+          certutil -decode certificate/tempCert.txt certificate/certificate.pfx
+          Remove-Item certificate/tempCert.txt
+          Import-PfxCertificate -FilePath certificate/certificate.pfx -CertStoreLocation Cert:\CurrentUser\My -Password (ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -Force -AsPlainText) | Out-Null
+      - name: Import Linux AppImage signing key
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          LINUX_GPG_PRIVATE_KEY: ${{ secrets.LINUX_GPG_PRIVATE_KEY }}
+        run: printf '%s' "$LINUX_GPG_PRIVATE_KEY" | gpg --batch --import
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          SIGN: ${{ runner.os == 'Linux' && '1' || '0' }}
+          SIGN_KEY: ${{ secrets.LINUX_GPG_KEY_ID }}
+          APPIMAGETOOL_SIGN_PASSPHRASE: ${{ secrets.APPIMAGETOOL_SIGN_PASSPHRASE }}
+          APPIMAGETOOL_FORCE_SIGN: ${{ runner.os == 'Linux' && '1' || '0' }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: DataForge ${{ github.ref_name }}
+          releaseBody: Automated signed desktop release.
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+      - name: Verify macOS signatures
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          app=$(find src-tauri/target -type d -name '*.app' -print -quit)
+          test -n "$app" || { echo 'No macOS app bundle found'; exit 1; }
+          codesign --verify --deep --strict --verbose=2 "$app"
+      - name: Verify Windows signatures
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $artifacts = Get-ChildItem -Path src-tauri/target -Recurse -File | Where-Object { $_.Extension -in '.exe', '.msi' }
+          if (-not $artifacts) { throw 'No Windows installer artifact found' }
+          foreach ($artifact in $artifacts) {
+            $signature = Get-AuthenticodeSignature $artifact.FullName
+            if ($signature.Status -ne 'Valid') { throw "Invalid signature for $($artifact.FullName): $($signature.Status)" }
+          }
+      - name: Verify Linux AppImage signature
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          appimage=$(find src-tauri/target -type f -name '*.AppImage' -print -quit)
+          test -n "$appimage" || { echo 'No Linux AppImage found'; exit 1; }
+          "$appimage" --appimage-signature | grep -q 'Signature' || { echo 'AppImage signature missing'; exit 1; }

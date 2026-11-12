@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+test-results/
+.dataforge-sync/
+.env
+.env.*
+!.env.example
+src-tauri/target/
+*.tsbuildinfo
+.DS_Store

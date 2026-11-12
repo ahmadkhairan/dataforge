@@ -1,0 +1,35 @@
+name: Bug report
+description: Report a reproducible problem in DataForge
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Please avoid attaching confidential datasets. Use a minimized or synthetic sample.
+  - type: input
+    id: version
+    attributes:
+      label: DataForge version
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: Describe the smallest reproducible workflow.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: OS, browser or Tauri, and input format
+    validations:
+      required: true
